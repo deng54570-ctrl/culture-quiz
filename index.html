@@ -118,11 +118,13 @@ header{
 .starbig{font-size:22px;line-height:1;padding:7px 10px;border-radius:11px;border:1px solid var(--line);background:#fffdfa}
 .starbig.on{color:var(--gold);border-color:#e3c583;background:#fdf6e6}
 .qfoot .btn.sm[disabled]{opacity:.38}
-/* 笔记 */
-.notebox{margin-top:14px;border:1px solid #e6dcc8;border-radius:12px;background:#fffdf6;padding:11px 13px}
+.qhead #qTimer{font-variant-numeric:tabular-nums;color:var(--gold);font-weight:600}
+.qhead #qTimer.run{color:var(--red)}
+/* 笔记（默认收起） */
+.notebox{margin-top:14px;border:1px solid #e6dcc8;border-radius:12px;background:#fffdf6;padding:9px 12px}
 .notehead{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--sub)}
-.notebody{margin-top:7px;font-size:14px;line-height:1.75;color:#3b332d;white-space:pre-wrap;word-break:break-word}
-.notebody.empty{color:#b3a79a}
+.notetoggle{border:0;background:none;font-size:13px;color:var(--gold);font-weight:600;padding:2px 0}
+.notebody{margin-top:6px;font-size:13.5px;line-height:1.7;color:#5b5049;background:#fdf7ea;border-left:3px solid var(--gold);border-radius:0 8px 8px 0;padding:7px 10px;white-space:pre-wrap;word-break:break-word}
 .noteedit{margin-top:9px}
 .noteedit textarea{
   width:100%;box-sizing:border-box;padding:10px 12px;border-radius:11px;border:1.5px solid var(--line);
@@ -131,6 +133,16 @@ header{
 .noteedit textarea:focus{border-color:var(--red)}
 .item .note{margin-top:8px;font-size:13.5px;line-height:1.7;color:#5b5049;background:#fdf7ea;border-left:3px solid var(--gold);border-radius:0 8px 8px 0;padding:7px 10px;white-space:pre-wrap;word-break:break-word}
 .pen{color:var(--gold);font-size:11px}
+/* 历次记录 */
+.round{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:13.5px}
+.round:last-child{border-bottom:0}
+.round .n{flex:none;width:52px;color:var(--sub);font-size:12px}
+.round .w{font-weight:700;color:var(--red2);font-variant-numeric:tabular-nums}
+.round .g{font-weight:700;color:var(--green)}
+.round .sp{flex:1}
+.round .t{color:var(--sub);font-size:12px;font-variant-numeric:tabular-nums}
+.round .bar2{width:64px;height:5px;border-radius:99px;background:#ece1d1;overflow:hidden}
+.round .bar2 i{display:block;height:100%;background:var(--green)}
 
 /* ── 列表 ── */
 .list{margin-top:12px}
@@ -228,6 +240,15 @@ nav button .badge{position:absolute;transform:translate(15px,-7px);background:va
       </div>
     </div>
 
+    <div id="resumeCard" class="card" style="display:none;border-color:#e3c583;background:#fffdf4">
+      <h2>⏸ 上次还没做完</h2>
+      <div class="sub" id="resumeInfo" style="margin:4px 0 10px"></div>
+      <div class="row" style="gap:8px">
+        <button class="btn sm" id="resumeBtn" style="margin:0">继续做</button>
+        <button class="btn sm ghost" id="abandonBtn" style="color:var(--red);border-color:#e9cdc6">放弃这一轮</button>
+      </div>
+    </div>
+
     <button class="btn" id="startBtn">开始刷题</button>
     <div class="sub" style="text-align:center;margin-top:10px" id="setupStat"></div>
   </section>
@@ -237,6 +258,7 @@ nav button .badge{position:absolute;transform:translate(15px,-7px);background:va
     <div class="card" style="padding:14px 16px">
       <div class="qhead">
         <span id="qProgress">0 / 0</span>
+        <span id="qTimer">⏱ 00:00</span>
         <span id="qScore">正确 0</span>
       </div>
       <div class="bar"><i id="qBar" style="width:0%"></i></div>
@@ -254,16 +276,18 @@ nav button .badge{position:absolute;transform:translate(15px,-7px);background:va
       </div>
       <div class="fb" id="qFb"></div>
 
-      <!-- 笔记：答完这道题后就地记，随时回看 -->
+      <!-- 笔记：默认收起，需要时点开写；已写的笔记直接显示 -->
       <div class="notebox" id="qNote" style="display:none">
         <div class="notehead">
-          <span>📝 我的笔记</span>
-          <button class="tinybtn" id="qNoteEdit">编辑</button>
+          <button class="notetoggle" id="qNoteToggle">📝 记笔记</button>
+          <span class="sub" id="qNoteHint"></span>
         </div>
-        <div class="notebody" id="qNoteBody"></div>
+        <div class="notebody" id="qNoteBody" style="display:none"></div>
         <div class="noteedit" id="qNoteEditBox" style="display:none">
           <textarea id="qNoteInput" rows="3" placeholder="写下这道题的考点／易错点／联想…"></textarea>
           <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-end">
+            <button class="tinybtn" id="qNoteDel" style="display:none">删除</button>
+            <span class="sp" style="flex:1"></span>
             <button class="tinybtn" id="qNoteCancel">取消</button>
             <button class="tinybtn red" id="qNoteSave">保存笔记</button>
           </div>
@@ -312,6 +336,11 @@ nav button .badge{position:absolute;transform:translate(15px,-7px);background:va
     <div class="card">
       <h2>分板块</h2>
       <table class="bk" id="statTable"></table>
+    </div>
+    <div class="card">
+      <h2>历次记录</h2>
+      <p class="hint">每做完一轮记一条，能看出第几轮错得少了。</p>
+      <div id="roundList"></div>
     </div>
     <div class="card">
       <h2>数据</h2>
@@ -365,10 +394,11 @@ const LS = {
   get(k, d){ try { const v = localStorage.getItem(SK + k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
   set(k, v){ try { localStorage.setItem(SK + k, JSON.stringify(v)); } catch(e){} }
 };
-let stats = LS.get('stats', {});          // id -> {ok:bool, ts}
+let stats = LS.get('stats', {});          // id -> {ok, ts, n(做过几次), w(错几次)}
 let wrong = new Set(LS.get('wrong', []));
 let star  = new Set(LS.get('star', []));
 let notes = LS.get('notes', {});          // id -> {text, ts}
+let rounds = LS.get('rounds', []);        // 每做完一轮记一条
 let conf  = Object.assign(
   { mode:'choice', scope:'all', order:'random', count:'50', auto:'1', books:[], chaps:[] },
   LS.get('conf', {})
@@ -377,7 +407,12 @@ const saveStats = () => LS.set('stats', stats);
 const saveWrong = () => { LS.set('wrong', [...wrong]); paintBadges(); };
 const saveStar  = () => { LS.set('star',  [...star ]); paintBadges(); };
 const saveNotes = () => { LS.set('notes', notes);    paintBadges(); };
+const saveRounds= () => LS.set('rounds', rounds);
 const saveConf  = () => LS.set('conf', conf);
+const saveSess  = s => LS.set('sess', s);
+const clearSess = () => { try { localStorage.removeItem(SK + 'sess'); } catch(e){} };
+const mmss = ms => { const s = Math.max(0, Math.round(ms / 1000));
+  return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
 
 /* ─────────── 小工具 ─────────── */
 const $  = s => document.querySelector(s);
@@ -403,7 +438,7 @@ function show(v){
   if (v === 'star')  renderList('#starList',  [...star ]);
   if (v === 'note')  renderNotes();
   if (v === 'stat')  renderStat();
-  if (v === 'setup') renderSetupStat();
+  if (v === 'setup'){ renderSetupStat(); renderResume(); }
   window.scrollTo(0, 0);
 }
 $$('nav button').forEach(b => b.onclick = () => { if (S.live) stopSession(); show(b.dataset.v); });
@@ -440,8 +475,10 @@ function pool(){
 /* ─────────── 开始会话 ─────────── */
 /* 队列以「题」为单位：一道多空题 = 一个组（组内是要依次作答的各空）。
    S.flat 把整轮摊平成一串「空」，S.pos 指向当前那个 —— 上一题/下一题就只是挪指针。
-   每个空的作答结果存在 S.state（id -> {ok, given}），回看时原样还原。 */
-const S = { queue: [], flat: [], pos: 0, ok: 0, done: 0, cur: null, answered: false, live: false, state: new Map() };
+   每个空的作答结果存在 S.state（id -> {ok, given}），回看时原样还原。
+   整轮会写进 localStorage，中途退出（关页面也行）下次能接着做。 */
+const S = { queue: [], flat: [], pos: 0, ok: 0, done: 0, cur: null, answered: false,
+            live: false, state: new Map(), baseMs: 0, startedAt: 0, timer: null };
 
 function groupByQuestion(list){
   const m = new Map();
@@ -453,18 +490,68 @@ function groupByQuestion(list){
   return [...m.values()].map(a => a.sort((x, y) => x.bi - y.bi));
 }
 
+function elapsedMs(){ return S.baseMs + (S.live && S.startedAt ? Date.now() - S.startedAt : 0); }
+function tickTimer(){
+  const el = $('#qTimer');
+  if (!el) return;
+  el.textContent = '⏱ ' + mmss(elapsedMs());
+  el.classList.toggle('run', S.live);
+}
+function startTimer(){ S.startedAt = Date.now(); clearInterval(S.timer); S.timer = setInterval(tickTimer, 1000); tickTimer(); }
+function pauseTimer(){ if (S.live && S.startedAt){ S.baseMs += Date.now() - S.startedAt; S.startedAt = 0; } clearInterval(S.timer); S.timer = null; tickTimer(); }
+
+function persist(){
+  if (!S.live){ return; }
+  saveSess({
+    groups: S.queue.map(g => g.map(it => it.id)),
+    pos: S.pos, ok: S.ok, done: S.done, baseMs: elapsedMs(), startedAt: Date.now(),
+    mode: conf.mode, ts: Date.now(),
+    state: [...S.state].reduce((o, [k, v]) => (o[k] = v, o), {})
+  });
+}
+function loadSaved(){ return LS.get('sess', null); }
+
 function startSession(list){
-  if (!list.length) { toast('这个范围里没有题'); return; }
+  if (!list.length) { toast('这个范围里没有题'); return false; }
   let q = groupByQuestion(list);
   if (conf.order === 'random') for (let i = q.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [q[i], q[j]] = [q[j], q[i]]; }
   const n = conf.count === 'all' ? q.length : Math.min(+conf.count, q.length);
   S.queue = q.slice(0, n);
   S.flat = [];
   S.queue.forEach((g, qi) => g.forEach(it => S.flat.push({ id: it.id, qi })));
-  S.pos = 0; S.ok = 0; S.done = 0; S.state = new Map(); S.live = true;
-  show('quiz'); nextItem();
+  S.pos = 0; S.ok = 0; S.done = 0; S.state = new Map(); S.baseMs = 0;
+  S.live = true; startTimer(); show('quiz'); nextItem(); persist();
+  return true;
 }
-function stopSession(){ S.live = false; show('setup'); }
+
+/* 从上次存下的进度继续（题号、作答、正确率、用时都接着走） */
+function resumeSession(){
+  const sv = loadSaved();
+  if (!sv) { toast('没有可继续的进度'); show('setup'); return; }
+  S.queue = sv.groups.map(g => g.map(id => byId.get(id)).filter(Boolean)).filter(g => g.length);
+  S.flat = [];
+  S.queue.forEach((g, qi) => g.forEach(it => S.flat.push({ id: it.id, qi })));
+  S.state = new Map(Object.entries(sv.state || {}));
+  S.pos = Math.min(sv.pos || 0, S.flat.length - 1);
+  S.ok = sv.ok || 0; S.done = sv.done || 0;
+  S.baseMs = sv.baseMs || 0;
+  const gone = (sv.mode && sv.mode !== conf.mode);      // 上次是选择题、这次设成填空了
+  if (gone) conf.mode = sv.mode;
+  S.live = true; startTimer(); show('quiz'); nextItem(); persist();
+}
+
+function abandonSession(){
+  if (!confirm('放弃这一轮的进度？已答过的题会留在统计里，笔记/错题本不受影响。')) return;
+  clearSess(); pauseTimer(); S.live = false;
+  show('setup'); renderResume(); toast('已放弃这一轮');
+}
+
+function stopSession(){
+  pauseTimer();
+  if (S.live) persist();
+  S.live = false; show('setup'); renderResume();
+}
+function dropSession(){ clearSess(); pauseTimer(); S.live = false; }
 
 function nextItem(){
   if (S.pos >= S.flat.length) { finish(); return; }
@@ -475,7 +562,7 @@ function nextItem(){
 function prevItem(){
   if (!S.live) return;
   if (S.pos <= 0) { toast('已经是第一题了'); return; }
-  S.pos--; nextItem();
+  S.pos--; nextItem(); persist();
 }
 
 function blankHTML(item, state, myPick){
@@ -519,6 +606,7 @@ function paintQuestion(){
   $('#qStar').classList.toggle('on', star.has(it.id));
   $('#qStar').textContent = star.has(it.id) ? '★' : '☆';
   $('#qPrev').disabled = S.pos <= 0;
+  tickTimer();
 
   const opts = $('#qOpts'), fill = $('#qFillin');
   if (conf.mode === 'choice') {
@@ -580,7 +668,8 @@ function answer(given, btn){
   S.answered = true; S.done++;
   if (ok) S.ok++;
 
-  stats[it.id] = { ok: ok, ts: Date.now() };
+  const prev = stats[it.id] || {};
+  stats[it.id] = { ok: ok, ts: Date.now(), n: (prev.n || 0) + 1, w: (prev.w || 0) + (ok ? 0 : 1) };
   if (ok) { if (wrong.has(it.id)) { wrong.delete(it.id); toast('答对了，已移出错题本'); } }
   else    { wrong.add(it.id); }
   saveStats(); saveWrong();
@@ -603,6 +692,7 @@ function answer(given, btn){
   $('#qScore').textContent = '正确 ' + S.ok + ' · ' + pct(S.ok, S.done) + '%';
   $('#qNext').textContent = (S.pos >= S.flat.length - 1) ? '看结果 →' : '下一题 →';
   $('#qNext').style.display = '';
+  persist();
   if (ok && conf.auto === '1') setTimeout(() => {
     if (S.live && S.cur && S.cur.id === it.id && S.answered) advance();
   }, 620);
@@ -610,17 +700,32 @@ function answer(given, btn){
 
 function advance(){
   if (S.pos >= S.flat.length - 1) { S.pos = S.flat.length; finish(); return; }
-  S.pos++; nextItem();
+  S.pos++; nextItem(); persist();
 }
 
 function finish(){
-  S.live = false;
-  const t = S.done, p = pct(S.ok, t);
+  const t = S.done, p = pct(S.ok, t), secs = Math.round(elapsedMs() / 1000);
+  pauseTimer(); S.live = false;
+  if (t > 0){                                   // 记一轮：第几次、总共、对错、用时
+    rounds.push({ n: rounds.length + 1, ts: Date.now(), total: t, correct: S.ok,
+                  wrongN: t - S.ok, seconds: secs, scope: scopeLabel() });
+    saveRounds();
+  }
+  dropSession();
   const msg = t === 0 ? '这一轮结束了。' :
     (p >= 90 ? '太强了！' : p >= 70 ? '不错，稳住了。' : p >= 50 ? '还行，错题再刷一遍。' : '基础还得再顺几遍。');
   window.scrollTo(0, 0);
-  alert('本轮结束 🎉\n\n共作答 ' + t + ' 空，答对 ' + S.ok + ' 空，正确率 ' + p + '%\n错题已自动收进「错题本」。\n\n' + msg);
-  show('setup');
+  alert('本轮结束 🎉\n\n共作答 ' + t + ' 空，答对 ' + S.ok + ' 空，错 ' + (t - S.ok) + ' 空，正确率 ' + p + '%\n用时 ' + mmss(secs * 1000) + '\n错题已自动收进「错题本」。\n\n' + msg);
+  show('setup'); renderResume(); renderSetupStat();
+}
+
+function scopeLabel(){
+  const parts = [];
+  parts.push(conf.books.length ? conf.books.join('/') : '全部板块');
+  parts.push(conf.mode === 'choice' ? '选择题' : '默写');
+  parts.push(conf.scope === 'all' ? '全部题目'
+           : conf.scope === 'new' ? '未做过' : conf.scope === 'wrong' ? '错题本' : '收藏');
+  return parts.join(' · ');
 }
 
 /* ─────────── 填空交互 ─────────── */
@@ -638,33 +743,44 @@ $('#qPrev').onclick = prevItem;
 const noteOf = id => (notes[id] && notes[id].text) || '';
 
 function paintNote(it){
-  const box = $('#qNote'), body = $('#qNoteBody'), editor = $('#qNoteEditBox');
+  const box = $('#qNote'), body = $('#qNoteBody');
   const text = noteOf(it.id);
   const show = S.state.has(it.id) || !!text;            // 答完这道题、或本来就有笔记，才出现
   box.style.display = show ? '' : 'none';
   if (!show) return;
-  body.textContent = text || '还没有笔记。点「编辑」写下这道题的考点／易错点。';
-  body.classList.toggle('empty', !text);
-  $('#qNoteEdit').textContent = text ? '编辑' : '写一条';
-  editor.style.display = 'none';
+  // 默认收起：只露一条「📝 记笔记」按钮；已经写过的笔记直接显示正文
+  $('#qNoteEditBox').style.display = 'none';
+  body.style.display = text ? '' : 'none';
+  body.textContent = text;
+  $('#qNoteToggle').textContent = text ? '📝 编辑笔记' : '📝 记笔记';
+  $('#qNoteHint').textContent = text ? '' : '（可留空，需要再写）';
+  $('#qNoteDel').style.display = text ? '' : 'none';
   $('#qNoteInput').value = text;
 }
 
-$('#qNoteEdit').onclick = () => {
+function toggleNoteEditor(force){
   const ed = $('#qNoteEditBox'), ta = $('#qNoteInput');
-  const open = ed.style.display === 'none';
+  const open = force != null ? force : (ed.style.display === 'none');
   ed.style.display = open ? '' : 'none';
-  if (open){ ta.value = noteOf(S.cur.id); setTimeout(() => ta.focus(), 40); }
-};
-$('#qNoteCancel').onclick = () => { $('#qNoteEditBox').style.display = 'none'; };
+  if (open){ ta.value = noteOf(S.cur ? S.cur.id : ''); setTimeout(() => ta.focus(), 40); }
+}
+$('#qNoteToggle').onclick = () => toggleNoteEditor();
+$('#qNoteCancel').onclick = () => toggleNoteEditor(false);
 $('#qNoteSave').onclick = () => {
   const it = S.cur, text = $('#qNoteInput').value.trim();
   if (text) notes[it.id] = { text: text, ts: Date.now() };
   else delete notes[it.id];
   saveNotes();
-  $('#qNoteEditBox').style.display = 'none';
+  toggleNoteEditor(false);
   paintNote(it);
   toast(text ? '笔记已保存 📝' : '笔记已删除');
+};
+$('#qNoteDel').onclick = () => {
+  const it = S.cur;
+  if (!notes[it.id]) return;
+  delete notes[it.id]; saveNotes();
+  toggleNoteEditor(false); paintNote(it);
+  toast('笔记已删除');
 };
 
 function renderNotes(limit){
@@ -775,7 +891,46 @@ function renderSetupStat(){
   const n = pool().length;
   const tot = ITEMS.length, done = Object.keys(stats).length;
   $('#poolHint').textContent = '（本范围 ' + n + ' 个空）';
-  $('#setupStat').textContent = '题库共 ' + tot + ' 个空 ｜ 已作答 ' + done + ' ｜ 错题 ' + wrong.size + ' ｜ 收藏 ' + star.size;
+  $('#setupStat').textContent = '题库共 ' + tot + ' 个空 ｜ 已作答 ' + done + ' ｜ 错题 ' + wrong.size +
+    ' ｜ 收藏 ' + star.size + ' ｜ 笔记 ' + Object.keys(notes).length;
+}
+
+/* 首页的「继续上次」卡片 */
+function renderResume(){
+  const sv = loadSaved();
+  const card = $('#resumeCard');
+  if (!sv || !sv.groups || !sv.groups.length){ card.style.display = 'none'; return; }
+  const total = sv.groups.reduce((n, g) => n + g.length, 0);
+  const left = Math.max(0, total - (sv.done || 0));
+  card.style.display = '';
+  $('#resumeInfo').textContent =
+    '已作答 ' + (sv.done || 0) + ' / ' + total + ' 空（还剩 ' + left + '）' +
+    ' ｜ 正确 ' + pct(sv.ok || 0, sv.done || 0) + '%' +
+    ' ｜ 已用 ' + mmss(sv.baseMs || 0) +
+    (sv.ts ? ' ｜ ' + new Date(sv.ts).toLocaleString('zh-CN', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '');
+}
+
+/* 统计页的「历次记录」。第 1 轮错几个、第 2 轮错几个，一眼能比 */
+function renderRounds(){
+  const box = $('#roundList');
+  if (!rounds.length){
+    box.innerHTML = '<div class="empty" style="padding:18px 6px">还没有完成的记录 —— 做完一轮就会记一条。</div>';
+    return;
+  }
+  const list = rounds.slice().sort((a, b) => b.n - a.n);
+  const best = Math.min(...rounds.map(r => r.wrongN));
+  box.innerHTML = list.map(r => {
+    const rate = pct(r.correct, r.total);
+    return '<div class="round"><span class="n">第 ' + r.n + ' 轮</span>' +
+      '<span class="' + (r.wrongN === 0 ? 'g' : 'w') + '">错 ' + r.wrongN + '</span>' +
+      '<span class="sp"></span>' +
+      '<span class="bar2"><i style="width:' + rate + '%"></i></span>' +
+      '<span class="t">' + rate + '% · ' + mmss((r.seconds || 0) * 1000) + '</span>' +
+      (r.n === 1 || r.wrongN === best ? '<span class="pen">' + (r.n === 1 ? '首次' : '最少') + '</span>' : '') +
+      '</div>';
+  }).join('') +
+  '<div class="sub" style="margin-top:10px">共 ' + rounds.length + ' 轮 ｜ 首轮错 ' + (rounds.find(r => r.n === 1) ? rounds.find(r => r.n === 1).wrongN : '—') +
+  ' ｜ 最近一轮错 ' + rounds[rounds.length - 1].wrongN + '</div>';
 }
 
 /* ─────────── 列表（错题本 / 收藏） ─────────── */
@@ -840,6 +995,7 @@ function renderStat(){
       '<td style="width:70px"><div class="mini"><i style="width:' + rate + '%"></i></div></td></tr>';
   }).join('');
   $('#statTable').innerHTML = '<tr><th>板块</th><th class="r">已刷</th><th class="r">正确率</th><th class="r">错题</th><th></th></tr>' + rows;
+  renderRounds();
 }
 
 /* ─────────── 徽标 / 交互绑定 ─────────── */
@@ -849,15 +1005,20 @@ function paintBadges(){
   $('#wrongN').textContent = wrong.size ? '（' + wrong.size + ' 空）' : '';
   $('#starN').textContent  = star.size  ? '（' + star.size  + ' 空）' : '';
 }
-$('#startBtn').onclick = () => { listLimit = 40; startSession(pool()); };
+$('#startBtn').onclick = () => {
+  if (loadSaved() && !confirm('上次那轮还没做完，开始新的一轮会丢掉那份进度。确定开始新的？')) return;
+  listLimit = 40; startSession(pool());
+};
+$('#resumeBtn').onclick = resumeSession;
+$('#abandonBtn').onclick = abandonSession;
 $('#wrongRedo').onclick = () => { if (wrong.size) startSession([...wrong].map(id => byId.get(id)).filter(Boolean)); else toast('错题本是空的'); };
 $('#starRedo').onclick  = () => { if (star.size)  startSession([...star ].map(id => byId.get(id)).filter(Boolean)); else toast('还没有收藏'); };
 $('#wrongClear').onclick = () => { if (wrong.size && confirm('清空错题本？已刷记录会保留。')) { wrong.clear(); saveWrong(); renderList('#wrongList', []); renderSetupStat(); } };
 $('#resetWrong').onclick = () => $('#wrongClear').onclick();
 $('#resetAll').onclick = () => {
-  if (!confirm('清空全部刷题记录（含正确率、错题本、收藏、笔记）？不可恢复。')) return;
-  stats = {}; wrong = new Set(); star = new Set(); notes = {};
-  saveStats(); saveWrong(); saveStar(); saveNotes();
+  if (!confirm('清空全部刷题记录（含正确率、错题本、收藏、笔记、历次记录）？不可恢复。')) return;
+  stats = {}; wrong = new Set(); star = new Set(); notes = {}; rounds = [];
+  saveStats(); saveWrong(); saveStar(); saveNotes(); saveRounds(); clearSess();
   toast('已全部清空'); renderStat(); renderSetupStat(); renderNotes();
 };
 
@@ -870,7 +1031,10 @@ ITEMS.forEach(it => {
   }
 });
 
-renderSegs(); renderChips(); paintBadges(); renderSetupStat();
+renderSegs(); renderChips(); paintBadges(); renderSetupStat(); renderResume();
+// 切后台/关页面时也把进度存一下
+document.addEventListener('visibilitychange', () => { if (document.hidden && S.live) persist(); });
+window.addEventListener('pagehide', () => { if (S.live) persist(); });
 </script>
 </body>
 </html>
