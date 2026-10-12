@@ -743,26 +743,29 @@ $('#qPrev').onclick = prevItem;
 const noteOf = id => (notes[id] && notes[id].text) || '';
 
 function paintNote(it){
-  const box = $('#qNote'), body = $('#qNoteBody');
+  const box = $('#qNote');
   const text = noteOf(it.id);
   const show = S.state.has(it.id) || !!text;            // 答完这道题、或本来就有笔记，才出现
   box.style.display = show ? '' : 'none';
   if (!show) return;
-  // 默认收起：只露一条「📝 记笔记」按钮；已经写过的笔记直接显示正文
-  $('#qNoteEditBox').style.display = 'none';
-  body.style.display = text ? '' : 'none';
-  body.textContent = text;
-  $('#qNoteToggle').textContent = text ? '📝 编辑笔记' : '📝 记笔记';
-  $('#qNoteHint').textContent = text ? '' : '（可留空，需要再写）';
+  $('#qNoteBody').textContent = text;
   $('#qNoteDel').style.display = text ? '' : 'none';
   $('#qNoteInput').value = text;
+  toggleNoteEditor(false);                              // 默认收起：只留一个按钮
 }
 
+/* 收起时只露按钮（有笔记的会写「已记一条」），点开才显示正文 + 输入框 */
 function toggleNoteEditor(force){
-  const ed = $('#qNoteEditBox'), ta = $('#qNoteInput');
+  const ed = $('#qNoteEditBox'), body = $('#qNoteBody'), ta = $('#qNoteInput');
+  const text = noteOf(S.cur ? S.cur.id : '');
   const open = force != null ? force : (ed.style.display === 'none');
   ed.style.display = open ? '' : 'none';
-  if (open){ ta.value = noteOf(S.cur ? S.cur.id : ''); setTimeout(() => ta.focus(), 40); }
+  body.style.display = (open && text) ? '' : 'none';
+  $('#qNoteToggle').textContent = open ? '收起笔记'
+    : (text ? '📝 笔记 · 已记一条' : '📝 记笔记');
+  $('#qNoteHint').textContent = (!open && !text) ? '（不用记就别点）' : '';
+  $('#qNoteDel').style.display = (open && text) ? '' : 'none';
+  if (open){ ta.value = text; setTimeout(() => ta.focus(), 40); }
 }
 $('#qNoteToggle').onclick = () => toggleNoteEditor();
 $('#qNoteCancel').onclick = () => toggleNoteEditor(false);
