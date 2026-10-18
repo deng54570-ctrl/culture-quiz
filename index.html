@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="theme-color" content="#93251f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -454,6 +454,41 @@ body.note-open{overflow:hidden}
 #qNoteEditBox{display:none !important}
 /* 笔记区不再参与入场动画，避免一开一合就闪动 */
 #v-quiz .notebox{animation:none !important}
+
+/* ═══ v6：整页锁定（不上下滑、不缩放） ═══ */
+html,body{
+  height:100%;
+  overflow:hidden;              /* 页面本身永不滚动 */
+  overscroll-behavior:none;     /* 去掉 iOS 橡皮筋回弹 */
+  position:fixed; inset:0;
+  width:100%;
+  -webkit-text-size-adjust:100%;
+  touch-action:manipulation;    /* 禁双击缩放 */
+}
+body{
+  display:flex; flex-direction:column;
+  padding-bottom:0 !important;  /* 交给 main 自己留白 */
+}
+/* 顶栏固定占位，main 成为唯一滚动区（且默认不滚） */
+header{position:relative !important; flex:none}
+main{
+  flex:1 1 auto; min-height:0;
+  overflow:hidden;              /* 默认不许滚 */
+  padding-bottom:calc(var(--nav-h) + 18px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+}
+main.can-scroll{
+  overflow-y:auto;              /* 仅在内容确实超出一屏时开启 */
+  overscroll-behavior:contain;
+}
+main::-webkit-scrollbar{width:0;height:0}
+main{scrollbar-width:none}
+/* 答题页：即使超长也不让整页跑，只让卡片内部兜底 */
+body.quiz-mode main{padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+body.quiz-mode main.can-scroll{overflow-y:auto}
+/* 底部导航保持固定 */
+nav{position:fixed}
 </style>
 </head>
 <body>
@@ -1654,6 +1689,51 @@ refreshTodayBadge();
   };
   sheet.onclick = function(e){ if (e.target === sheet) closeSheet(); };
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && sheet.classList.contains('on')) closeSheet(); });
+})();
+
+/* ══ 整页锁定：内容放得下就禁止滚动，放不下才允许内部滚 ══ */
+(function(){
+  // iOS Safari：手势缩放拦截
+  ['gesturestart','gesturechange','gestureend'].forEach(function(ev){
+    document.addEventListener(ev, function(e){ e.preventDefault(); }, { passive:false });
+  });
+  // 双击缩放兜底（只在两次触摸间隔 <300ms 且不在输入框上时拦截）
+  var lastTap = 0;
+  document.addEventListener('touchend', function(e){
+    var t = e.target;
+    if (t && /input|textarea/i.test(t.tagName)) return;
+    var now = Date.now();
+    if (now - lastTap < 300) e.preventDefault();
+    lastTap = now;
+  }, { passive:false });
+
+  var main = document.querySelector('main');
+  function syncScroll(){
+    if (!main) return;
+    // 先清掉，量真实内容高度
+    main.classList.remove('can-scroll');
+    var need = main.scrollHeight > main.clientHeight + 2;
+    main.classList.toggle('can-scroll', need);
+  }
+  window.syncScroll = syncScroll;
+  window.addEventListener('resize', syncScroll);
+  window.addEventListener('orientationchange', function(){ setTimeout(syncScroll, 250); });
+
+  var _show3 = show;
+  show = function(v){ _show3(v); setTimeout(syncScroll, 60); };
+  var _paint = paintQuestion;
+  paintQuestion = function(){ _paint(); setTimeout(syncScroll, 60); };
+  // 内容动态变化时自动重新判断（考点页点分类、展开列表等）
+  if (main && window.MutationObserver){
+    var mo = new MutationObserver(function(){
+      clearTimeout(mo._t);
+      mo._t = setTimeout(syncScroll, 80);
+    });
+    mo.observe(main, { childList: true, subtree: true });
+  }
+  var _note = paintNote;
+  paintNote = function(it){ _note(it); setTimeout(syncScroll, 60); };
+  setTimeout(syncScroll, 120);
 })();
 
 </script>
