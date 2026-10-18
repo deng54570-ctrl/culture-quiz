@@ -1691,31 +1691,6 @@ refreshTodayBadge();
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && sheet.classList.contains('on')) closeSheet(); });
 })();
 
-var BUILD = '202610182348';
-
-/* ══ 自动检测新版：打开时比对线上构建号，变了就提示刷新 ══ */
-(function(){
-  try{
-    if (location.protocol === 'file:') return;
-    var last = +(localStorage.getItem('cq_v3_buildchk') || 0);
-    if (Date.now() - last < 6*3600*1000) return;   // 6 小时最多查一次，省流量
-    localStorage.setItem('cq_v3_buildchk', Date.now());
-    fetch(location.pathname + '?_b=' + Date.now(), {cache:'no-store'})
-      .then(function(r){ return r.text(); })
-      .then(function(txt){
-        var m = txt.match(/var BUILD = '([^']+)'/);
-        if (!m || !m[1] || m[1] === BUILD) return;
-        var bar = document.createElement('div');
-        bar.style.cssText = 'position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top));z-index:120;background:#1b1916;color:#fff;border-radius:14px;padding:10px 14px;font-size:13px;display:flex;align-items:center;gap:10px;box-shadow:0 16px 40px -16px rgba(0,0,0,.7)';
-        bar.innerHTML = '<span style="flex:1">发现新版本</span>';
-        var b = document.createElement('button');
-        b.textContent = '立即更新'; b.style.cssText = 'background:linear-gradient(135deg,#c8452b,#d97706);border:none;color:#fff;font-weight:700;font-size:13px;padding:7px 14px;border-radius:10px';
-        b.onclick = function(){ location.replace(location.pathname + '?v=' + Date.now()); };
-        bar.appendChild(b); document.body.appendChild(bar);
-      }).catch(function(){});
-  }catch(e){}
-})();
-
 /* ══ 整页锁定：内容放得下就禁止滚动，放不下才允许内部滚 ══ */
 (function(){
   // iOS Safari：手势缩放拦截
@@ -1759,6 +1734,64 @@ var BUILD = '202610182348';
   var _note = paintNote;
   paintNote = function(it){ _note(it); setTimeout(syncScroll, 60); };
   setTimeout(syncScroll, 120);
+})();
+
+/* ══ 记录备份：导出 / 导入（跨浏览器搬记录） ══ */
+(function(){
+  var PREFIX = ['cq_v2_', 'cq_v3_'];
+  function pickAll(){
+    var out = {};
+    for (var i = 0; i < localStorage.length; i++){
+      var k = localStorage.key(i);
+      if (PREFIX.some(function(p){ return k.indexOf(p) === 0; })) out[k] = localStorage.getItem(k);
+    }
+    return out;
+  }
+  function countOf(o){
+    var n = 0;
+    try { n = Object.keys(JSON.parse(o['cq_v2_stats'] || '{}')).length; } catch(e){}
+    return n;
+  }
+  // 在「统计」页的数据区插入按钮
+  var row = document.querySelector('#v-stat .row');
+  if (row && !document.getElementById('btnExport')){
+    var exp = document.createElement('button');
+    exp.className = 'btn sm ghost'; exp.id = 'btnExport'; exp.textContent = '导出记录';
+    var imp = document.createElement('button');
+    imp.className = 'btn sm ghost'; imp.id = 'btnImport'; imp.textContent = '导入记录';
+    var file = document.createElement('input');
+    file.type = 'file'; file.accept = '.json,application/json'; file.style.display = 'none';
+    row.appendChild(exp); row.appendChild(imp); row.appendChild(file);
+
+    exp.onclick = function(){
+      var data = pickAll();
+      var blob = new Blob([JSON.stringify({ v: 1, ts: Date.now(), data: data }, null, 1)], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '刷题记录备份-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+      toast('已导出 ' + countOf(data) + ' 条答题记录');
+    };
+    imp.onclick = function(){ file.click(); };
+    file.onchange = function(){
+      var f = file.files && file.files[0]; if (!f) return;
+      var r = new FileReader();
+      r.onload = function(){
+        try {
+          var o = JSON.parse(r.result);
+          var d = o.data || o;
+          var keys = Object.keys(d).filter(function(k){ return PREFIX.some(function(p){ return k.indexOf(p) === 0; }); });
+          if (!keys.length) { toast('这个文件里没有记录'); return; }
+          if (!confirm('导入会覆盖本机现有记录，确定吗？（共 ' + keys.length + ' 项）')) return;
+          keys.forEach(function(k){ localStorage.setItem(k, d[k]); });
+          toast('已导入，正在刷新…');
+          setTimeout(function(){ location.reload(); }, 600);
+        } catch(e){ toast('文件格式不对'); }
+      };
+      r.readAsText(f);
+    };
+  }
 })();
 
 </script>
