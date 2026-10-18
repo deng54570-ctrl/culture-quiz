@@ -489,6 +489,45 @@ body.quiz-mode main{padding-bottom:calc(16px + env(safe-area-inset-bottom))}
 body.quiz-mode main.can-scroll{overflow-y:auto}
 /* 底部导航保持固定 */
 nav{position:fixed}
+
+/* ═══ v7：答题页强制锁死 + 紧凑排版，保证一屏放得下 ═══ */
+body.quiz-mode main{overflow:hidden !important}
+body.quiz-mode main.can-scroll{overflow:hidden !important}
+body.quiz-mode #v-quiz{height:100%;display:flex;flex-direction:column;min-height:0}
+body.quiz-mode #v-quiz > .card{
+  flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
+  margin:0;padding:14px 15px;border-radius:18px
+}
+/* 题目区收紧，长题也不至于溢出 */
+body.quiz-mode .stem{font-size:16.5px;line-height:1.85;margin:10px 0 4px}
+body.quiz-mode .opts{gap:8px;margin-top:10px}
+body.quiz-mode .opt{padding:11px 13px;font-size:15px}
+body.quiz-mode .fb{margin-top:10px;padding:10px 12px;font-size:13.5px}
+body.quiz-mode .notebox{margin-top:10px;padding:8px 11px}
+body.quiz-mode .qfoot{margin-top:12px}
+body.quiz-mode .card > :first-child{flex:none}
+/* 真的还溢出的极端情况：只让题目区内部滚，页面永远不动 */
+body.quiz-mode .stem{
+  overflow-y:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;max-height:38vh
+}
+/* 版本号 */
+#verLine{font-size:11px;color:var(--sub);margin-top:10px;font-variant-numeric:tabular-nums}
+
+
+/* ═══ v8：修底部遮挡 + 去掉游离数字 ═══ */
+#navStar{display:none !important}
+
+/* main 同时是 .wrap（padding:0 16px），类选择器优先级更高，
+   所以必须用 main.wrap 才能让底部留白生效 */
+main.wrap{padding:0 16px 118px}
+@supports (padding: env(safe-area-inset-bottom)){
+  main.wrap{padding:0 16px calc(118px + env(safe-area-inset-bottom))}
+}
+body.quiz-mode main.wrap{padding:0 16px 20px}
+@supports (padding: env(safe-area-inset-bottom)){
+  body.quiz-mode main.wrap{padding:0 16px calc(20px + env(safe-area-inset-bottom))}
+}
 </style>
 </head>
 <body>
@@ -1409,6 +1448,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && S.l
 window.addEventListener('pagehide', () => { if (S.live) persist(); });
 </script>
 <script>
+var BUILD = '202610182357';
 
 /* ══════════════════════════════════════════════════════════════
    ③ 记忆排程层 / ④ 错因与薄弱画像 / 考点树 —— 叠加在老逻辑之上
@@ -1791,6 +1831,18 @@ refreshTodayBadge();
       };
       r.readAsText(f);
     };
+  }
+})();
+
+/* 在统计页显示版本号，方便确认是否最新 */
+(function(){
+  var card = document.querySelector('#v-stat .card:last-of-type') || document.querySelector('#v-stat .card');
+  if (card && !document.getElementById('verLine')){
+    var d = document.createElement('div');
+    d.id = 'verLine';
+    d.className = 'sub';
+    d.textContent = '构建 ' + BUILD + ' ｜ 题库 ' + ITEMS.length + ' 空';
+    card.appendChild(d);
   }
 })();
 
