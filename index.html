@@ -990,8 +990,11 @@ function blankHTML(item, state, myPick){
         txt = item.bn > 1 ? '（第 ' + (item.bi + 1) + ' 空）' : '？';
         cls += ' cur';
       } else {
+        // 只有这个空自己作答过才显示；否则一律显示空线（不提前露答案）
         const sib = byId.get(item.id.replace(/-\d+$/, '-' + i));
-        txt = (S.answered && sib) ? sib.answer : '＿＿';
+        const sibSt = sib ? S.state.get(sib.id) : null;
+        if (sibSt) { txt = sib.answer; cls += sibSt.ok ? ' ok' : ' no'; }
+        else { txt = '＿＿'; }
       }
       out += '<span class="' + cls + '">' + esc(txt) + '</span>';
     }
@@ -1049,13 +1052,22 @@ function paintQuestion(){
   window.scrollTo(0, 0);
 }
 
+function allBlanksDone(it){
+  if (!it || !(it.bn > 1)) return true;
+  for (let k = 0; k < it.bn; k++){
+    const s = byId.get(it.id.replace(/-\d+$/, '-' + k));
+    if (s && !S.state.has(s.id)) return false;   // 还有空没做
+  }
+  return true;
+}
 function paintFeedback(it, st){
   const fb = $('#qFb');
   if (!st){ fb.className = 'fb'; fb.innerHTML = ''; return; }
+  const showAll = it.bn > 1 && allBlanksDone(it);   // 全部空都做完了才揭晓整题答案
   fb.className = 'fb show ' + (st.ok ? 'ok' : 'no');
   fb.innerHTML = st.ok
-    ? '✅ <b>答对了</b>' + (it.bn > 1 ? '　本题答案：' + esc(it.answersLine || '') : '')
-    : '❌ 正确答案：<b>' + esc(it.answer) + '</b>' + (it.bn > 1 ? '<br><span class="sub">本题全部答案：' + esc(it.answersLine || '') + '</span>' : '');
+    ? '✅ <b>答对了</b>' + (showAll ? '　本题答案：' + esc(it.answersLine || '') : '')
+    : '❌ 正确答案：<b>' + esc(it.answer) + '</b>' + (showAll ? '<br><span class="sub">本题全部答案：' + esc(it.answersLine || '') + '</span>' : '');
 }
 
 function judge(it, given){
@@ -1071,17 +1083,48 @@ function answer(given, btn){
   const it = S.cur;
   if (S.answered) return;
   if (!btn && !String(given == null ? '' : given).trim()) { toast('先写下答案再提交'); return; }
-  const ok = judge(it, given);
-  S.state.set(it.id, { ok: ok, given: given });          // 记下这一空的作答，供回看
-  S.answered = true; S.done++;
-  if (ok) S.ok++;
 
-  const prev = stats[it.id] || {};
-  stats[it.id] = { ok: ok, ts: Date.now(), n: (prev.n || 0) + 1, w: (prev.w || 0) + (ok ? 0 : 1) };
-  if (ok) { if (wrong.has(it.id)) { wrong.delete(it.id); toast('答对了，已移出错题本'); } }
-  else    { wrong.add(it.id); }
+  /* 并列多空（如「四大发明」）：答案可以落到本题任意一个还没作答的空里，顺序不限。
+     先看是不是当前空的答案；不是的话，再在未作答的兄弟空里找。 */
+  let target = it, ok = judge(it, given);
+  if (!ok && it.bn > 1){
+    for (let k = 0; k < it.bn; k++){
+      if (k === it.bi) continue;
+      const sib = byId.get(it.id.replace(/-\d+$/, '-' + k));
+      if (!sib || S.state.has(sib.id)) continue;      // 已经填过的空不再接受
+      if (judge(sib, given)) { target = sib; ok = true; break; }
+    }
+  }
+
+  S.state.set(target.id, { ok: ok, given: given });     // 记下这一空的作答，供回看
+  S.done++;
+  if (ok) S.ok++;
+  if (typeof window.__onGraded === 'function'){ try { window.__onGraded(target, given, ok); } catch(e){} }
+
+  const prev = stats[target.id] || {};
+  stats[target.id] = { ok: ok, ts: Date.now(), n: (prev.n || 0) + 1, w: (prev.w || 0) + (ok ? 0 : 1) };
+  if (ok) { if (wrong.has(target.id)) { wrong.delete(target.id); } }
+  else    { wrong.add(target.id); }
   saveStats(); saveWrong();
 
+  /* 填到的是别的空：当前这个空继续待填，不进入「已作答」状态，也不跳题 */
+  if (target !== it){
+    S.answered = false;
+    $('#qStem').innerHTML = blankHTML(it, 'idle', '');
+    if (btn){
+      $('#qOpts').querySelectorAll('.opt').forEach(b => { b.classList.remove('ok','no'); b.disabled = false; });
+    } else {
+      const inp = $('#qInput'); inp.classList.remove('ok','no'); inp.value = ''; inp.disabled = false;
+      $('#qSubmit').disabled = false;
+      inp.focus();
+    }
+    $('#qScore').textContent = '正确 ' + S.ok + ' · ' + pct(S.ok, S.done) + '%';
+    toast('已填入第 ' + (target.bi + 1) + ' 空 ✅');
+    persist();
+    return;
+  }
+
+  S.answered = true;
   if (btn) {
     btn.classList.add(ok ? 'ok' : 'no');
     if (!ok) {
@@ -1107,8 +1150,11 @@ function answer(given, btn){
 }
 
 function advance(){
-  if (S.pos >= S.flat.length - 1) { S.pos = S.flat.length; finish(); return; }
-  S.pos++; nextItem(); persist();
+  // 跳过已经作答过的空（多空题乱序填完后，剩下的空自然接上）
+  let p = S.pos + 1;
+  while (p < S.flat.length && S.state.has(S.flat[p].id)) p++;
+  if (p >= S.flat.length) { S.pos = S.flat.length; finish(); return; }
+  S.pos = p; nextItem(); persist();
 }
 
 function finish(){
@@ -1448,7 +1494,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && S.l
 window.addEventListener('pagehide', () => { if (S.live) persist(); });
 </script>
 <script>
-var BUILD = '202610260017';
+var BUILD = '202610291305';
 
 /* ══════════════════════════════════════════════════════════════
    ③ 记忆排程层 / ④ 错因与薄弱画像 / 考点树 —— 叠加在老逻辑之上
@@ -1667,11 +1713,22 @@ function renderConcept(){
 function startLeaf(cat, leaf){ startSession(itemsOfLeaf(cat, leaf)); }
 
 /* ── 包裹老函数（不改函数体） ── */
-var _answer = answer;
-answer = function(given, btn){
-  var it = S.cur, done = S.answered;
-  _answer(given, btn);
-  if (!done && S.answered && it) afterAnswer(it, given);
+/* 判分钩子：模板里的 answer() 每记录一个空就回调一次，
+   这里统一做 SRS 推进 + 错因统计（多空题乱序填也能记对目标空） */
+window.__onGraded = function(item, given, ok){
+  try {
+    var now = Date.now();
+    SRS.grade(srs, item.id, ok, now);
+    saveSrs();
+    if (!ok){
+      var lk = leafKey(item);
+      errByLeaf[lk] = (errByLeaf[lk] || 0) + 1;
+      var cause = classifyErr(item, given);
+      errByCause[cause] = (errByCause[cause] || 0) + 1;
+      LS3.set('errLeaf', errByLeaf); LS3.set('errCause', errByCause);
+    }
+    refreshTodayBadge();
+  } catch(e){}
 };
 var _show = show;
 show = function(v){
